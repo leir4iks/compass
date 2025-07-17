@@ -12,7 +12,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scheduler.Cancellable;
-
 import java.util.UUID;
 
 public class CompassCommand implements CommandExecutor {
@@ -29,36 +28,29 @@ public class CompassCommand implements CommandExecutor {
             sender.sendMessage("This command can only be used by a player.");
             return true;
         }
-
         Player player = (Player) sender;
-
         if (args.length == 0) {
             stopTracking(player);
             return true;
         }
-
         if (args.length == 1) {
             if (player.getInventory().getItemInMainHand().getType() != Material.COMPASS) {
                 player.sendMessage(ChatColor.RED + "Чтобы использовать эту команду, возьмите компас в основную руку.");
                 return true;
             }
-
             Player target = Bukkit.getPlayer(args[0]);
             if (target == null) {
                 player.sendMessage(ChatColor.RED + "Игрок " + args[0] + " не найден на сервере.");
                 return true;
             }
-
             if (target.equals(player)) {
                 player.sendMessage(ChatColor.RED + "Вы не можете отслеживать самого себя.");
                 return true;
             }
-
             stopTracking(player);
             startTracking(player, target);
             return true;
         }
-
         sender.sendMessage(ChatColor.RED + "Неверное использование. " + command.getUsage());
         return false;
     }
@@ -80,17 +72,15 @@ public class CompassCommand implements CommandExecutor {
         plugin.getTrackingData().put(player.getUniqueId(), target.getUniqueId());
         player.sendMessage(ChatColor.GREEN + "Ваш компас теперь указывает на игрока " + ChatColor.YELLOW + target.getName() + ".");
         player.sendMessage(ChatColor.GRAY + "Чтобы прекратить отслеживание, введите /compass.");
-
         BukkitTask task = createTask(player, target);
         plugin.getRunningTasks().put(player.getUniqueId(), task);
     }
 
-    private void updateCompassState(Player player, Player initialTarget, Cancellable task) {
+    public void updateCompassState(Player player, Player initialTarget, Cancellable task) {
         if (!player.isOnline()) {
             task.cancel();
             return;
         }
-
         boolean holdingCompass = player.getInventory().getItemInMainHand().getType() == Material.COMPASS ||
                                  player.getInventory().getItemInOffHand().getType() == Material.COMPASS;
 
@@ -98,16 +88,13 @@ public class CompassCommand implements CommandExecutor {
             player.setCompassTarget(player.getWorld().getSpawnLocation());
             return;
         }
-
         UUID targetUUID = plugin.getTrackingData().get(player.getUniqueId());
         if (targetUUID == null) {
             task.cancel();
             return;
         }
-
         Player target = Bukkit.getPlayer(targetUUID);
         String message;
-
         if (target == null || !target.isOnline()) {
             message = ChatColor.YELLOW + initialTarget.getName() + ChatColor.WHITE + " | " + ChatColor.GRAY + "оффлайн";
         } else {
@@ -129,9 +116,7 @@ public class CompassCommand implements CommandExecutor {
 
     private BukkitTask createTask(Player player, Player initialTarget) {
         if (plugin.isFolia()) {
-            return player.getScheduler().runAtFixedRate(plugin, scheduledTask -> {
-                updateCompassState(player, initialTarget, scheduledTask);
-            }, 1L, 20L);
+            return CompassFolia.schedule(plugin, player, initialTarget, this);
         } else {
             BukkitRunnable runnable = new BukkitRunnable() {
                 @Override
