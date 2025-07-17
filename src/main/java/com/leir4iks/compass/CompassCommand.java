@@ -11,6 +11,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.scheduler.Cancellable;
 
 import java.util.UUID;
 
@@ -30,7 +31,6 @@ public class CompassCommand implements CommandExecutor {
         }
 
         Player player = (Player) sender;
-        UUID playerUUID = player.getUniqueId();
 
         if (args.length == 0) {
             stopTracking(player);
@@ -85,55 +85,60 @@ public class CompassCommand implements CommandExecutor {
         plugin.getRunningTasks().put(player.getUniqueId(), task);
     }
 
-    private BukkitTask createTask(Player player, Player initialTarget) {
-        BukkitRunnable runnable = new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!player.isOnline()) {
-                    this.cancel();
-                    return;
-                }
+    private void updateCompassState(Player player, Player initialTarget, Cancellable task) {
+        if (!player.isOnline()) {
+            task.cancel();
+            return;
+        }
 
-                boolean holdingCompass = player.getInventory().getItemInMainHand().getType() == Material.COMPASS ||
-                                         player.getInventory().getItemInOffHand().getType() == Material.COMPASS;
+        boolean holdingCompass = player.getInventory().getItemInMainHand().getType() == Material.COMPASS ||
+                                 player.getInventory().getItemInOffHand().getType() == Material.COMPASS;
 
-                if (!holdingCompass) {
-                    player.setCompassTarget(player.getWorld().getSpawnLocation());
-                    return;
-                }
-                
-                UUID targetUUID = plugin.getTrackingData().get(player.getUniqueId());
-                if (targetUUID == null) {
-                    this.cancel();
-                    return;
-                }
+        if (!holdingCompass) {
+            player.setCompassTarget(player.getWorld().getSpawnLocation());
+            return;
+        }
 
-                Player target = Bukkit.getPlayer(targetUUID);
-                String message;
+        UUID targetUUID = plugin.getTrackingData().get(player.getUniqueId());
+        if (targetUUID == null) {
+            task.cancel();
+            return;
+        }
 
-                if (target == null || !target.isOnline()) {
-                    message = ChatColor.YELLOW + initialTarget.getName() + ChatColor.WHITE + " | " + ChatColor.GRAY + "оффлайн";
-                } else {
-                    player.setCompassTarget(target.getLocation());
-                    if (player.getWorld().equals(target.getWorld())) {
-                        int distance = (int) player.getLocation().distance(target.getLocation());
-                        message = ChatColor.YELLOW + target.getName() +
-                                  ChatColor.WHITE + " | " +
-                                  ChatColor.GREEN + "расстояние: " + distance;
-                    } else {
-                        String worldName = getWorldDisplayName(target.getWorld().getName());
-                        message = ChatColor.YELLOW + target.getName() +
-                                  ChatColor.WHITE + " | " +
-                                  ChatColor.RED + worldName;
-                    }
-                }
-                player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(message));
-            }
-        };
+        Player target = Bukkit.getPlayer(targetUUID);
+        String message;
 
-        if (plugin.isFolia()) {
-            return player.getScheduler().runAtFixedRate(plugin, task -> runnable.run(), 0L, 20L);
+        if (target == null || !target.isOnline()) {
+            message = ChatColor.YELLOW + initialTarget.getName() + ChatColor.WHITE + " | " + ChatColor.GRAY + "оффлайн";
         } else {
+            player.setCompassTarget(target.getLocation());
+            if (player.getWorld().equals(target.getWorld())) {
+                int distance = (int) player.getLocation().distance(target.getLocation());
+                message = ChatColor.YELLOW + target.getName() +
+                          ChatColor.WHITE + " | " +
+                          ChatColor.GREEN + "расстояние: " + distance;
+            } else {
+                String worldName = getWorldDisplayName(target.getWorld().getName());
+                message = ChatColor.YELLOW + target.getName() +
+                          ChatColor.WHITE + " | " +
+                          ChatColor.RED + worldName;
+            }
+        }
+        player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(message));
+    }
+
+    private BukkitTask createTask(Player player, Player initialTarget) {
+        if (plugin.isFolia()) {
+            return player.getScheduler().runAtFixedRate(plugin, scheduledTask -> {
+                updateCompassState(player, initialTarget, scheduledTask);
+            }, 1L, 20L);
+        } else {
+            BukkitRunnable runnable = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    updateCompassState(player, initialTarget, this);
+                }
+            };
             return runnable.runTaskTimer(plugin, 0L, 20L);
         }
     }
