@@ -8,42 +8,35 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.inventory.meta.CompassMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 public class CompassCommand implements CommandExecutor {
 
-    private final Compass plugin;
-
-    public CompassCommand(Compass plugin) {
-        this.plugin = plugin;
-    }
-
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player)) {
+        if (!(sender instanceof Player player)) {
             sender.sendMessage("This command can only be used by a player.");
             return true;
         }
 
-        Player player = (Player) sender;
         ItemStack itemInHand = player.getInventory().getItemInMainHand();
-
         if (itemInHand.getType() != Material.COMPASS) {
             player.sendMessage(ChatColor.RED + "Возьмите компас в руку, чтобы использовать эту команду.");
             return true;
         }
 
-        ItemMeta meta = itemInHand.getItemMeta();
-        PersistentDataContainer container = meta.getPersistentDataContainer();
+        if (!(itemInHand.getItemMeta() instanceof CompassMeta meta)) {
+            return true;
+        }
 
         if (args.length == 0) {
-            if (container.has(Compass.TRACKING_KEY, PersistentDataType.STRING)) {
-                container.remove(Compass.TRACKING_KEY);
-                meta.setDisplayName(null); // Сбрасываем имя предмета
+            if (meta.getPersistentDataContainer().has(Compass.TRACKING_KEY, PersistentDataType.STRING)) {
+                meta.getPersistentDataContainer().remove(Compass.TRACKING_KEY);
+                meta.setLodestone(null);
+                meta.setLodestoneTracked(false);
+                meta.setDisplayName(null);
                 itemInHand.setItemMeta(meta);
-                player.setCompassTarget(player.getWorld().getSpawnLocation());
                 player.sendMessage(ChatColor.GREEN + "Компас в вашей руке больше ни за кем не следит.");
             } else {
                 player.sendMessage(ChatColor.YELLOW + "Этот компас и так ни за кем не следил.");
@@ -63,7 +56,7 @@ public class CompassCommand implements CommandExecutor {
                 return true;
             }
 
-            container.set(Compass.TRACKING_KEY, PersistentDataType.STRING, target.getUniqueId().toString());
+            meta.getPersistentDataContainer().set(Compass.TRACKING_KEY, PersistentDataType.STRING, target.getUniqueId().toString());
             meta.setDisplayName(ChatColor.AQUA + "Компас (Отслеживает: " + target.getName() + ")");
             itemInHand.setItemMeta(meta);
 
