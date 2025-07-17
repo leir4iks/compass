@@ -17,6 +17,7 @@
     </properties>
 
     <build>
+        <finalName>compass</finalName>
         <defaultGoal>clean package</defaultGoal>
         <plugins>
             <plugin>
