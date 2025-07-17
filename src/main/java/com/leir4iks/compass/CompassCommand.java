@@ -11,7 +11,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.scheduler.Cancellable;
 import java.util.UUID;
 
 public class CompassCommand implements CommandExecutor {
@@ -76,9 +75,9 @@ public class CompassCommand implements CommandExecutor {
         plugin.getRunningTasks().put(player.getUniqueId(), task);
     }
 
-    public void updateCompassState(Player player, Player initialTarget, Cancellable task) {
+    public void updateCompassState(Player player, Player initialTarget, Runnable cancelAction) {
         if (!player.isOnline()) {
-            task.cancel();
+            cancelAction.run();
             return;
         }
         boolean holdingCompass = player.getInventory().getItemInMainHand().getType() == Material.COMPASS ||
@@ -90,7 +89,7 @@ public class CompassCommand implements CommandExecutor {
         }
         UUID targetUUID = plugin.getTrackingData().get(player.getUniqueId());
         if (targetUUID == null) {
-            task.cancel();
+            cancelAction.run();
             return;
         }
         Player target = Bukkit.getPlayer(targetUUID);
@@ -121,7 +120,7 @@ public class CompassCommand implements CommandExecutor {
             BukkitRunnable runnable = new BukkitRunnable() {
                 @Override
                 public void run() {
-                    updateCompassState(player, initialTarget, this);
+                    updateCompassState(player, initialTarget, this::cancel);
                 }
             };
             return runnable.runTaskTimer(plugin, 0L, 20L);
