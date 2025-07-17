@@ -1,0 +1,14 @@
+name: compass
+version: '1.1'
+main: com.leir4iks.compass.Compass
+api-version: '1.21'
+author: leir4iks
+description: A simple plugin to make a compass track a player.
+folia-supported: true
+
+commands:
+  compass:
+    description: Makes your compass track a player or stops tracking.
+    usage: |
+      /compass <player_name> - Starts tracking the specified player.
+      /compass - Stops tracking.
