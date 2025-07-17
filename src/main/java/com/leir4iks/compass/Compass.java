@@ -30,19 +30,16 @@ public final class Compass extends JavaPlugin {
             @Override
             public void run() {
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    updateCompassInHand(player.getInventory().getItemInMainHand());
-                    updateCompassInHand(player.getInventory().getItemInOffHand());
+                    updatePlayerCompass(player);
                 }
             }
         }.runTaskTimer(this, 0L, 20L);
     }
 
-    private void updateCompassInHand(ItemStack item) {
-        if (item == null || item.getType() != Material.COMPASS || !item.hasItemMeta()) {
-            return;
-        }
+    private void updatePlayerCompass(Player owner) {
+        ItemStack item = owner.getInventory().getItemInMainHand();
 
-        if (!(item.getItemMeta() instanceof CompassMeta meta)) {
+        if (item.getType() != Material.COMPASS || !(item.getItemMeta() instanceof CompassMeta meta)) {
             return;
         }
 
@@ -53,9 +50,6 @@ public final class Compass extends JavaPlugin {
         String targetUUIDString = meta.getPersistentDataContainer().get(TRACKING_KEY, PersistentDataType.STRING);
         UUID targetUUID = UUID.fromString(targetUUIDString);
         Player target = Bukkit.getPlayer(targetUUID);
-
-        Player owner = (Player) item.getHolder();
-        if (owner == null) return;
 
         String message;
         if (target != null && target.isOnline()) {
