@@ -7,7 +7,7 @@ public class CompassFolia {
 
     public static BukkitTask schedule(Compass plugin, Player player, Player initialTarget, CompassCommand command) {
         return player.getScheduler().runAtFixedRate(plugin, scheduledTask -> {
-            command.updateCompassState(player, initialTarget, scheduledTask);
+            command.updateCompassState(player, initialTarget, scheduledTask::cancel);
         }, 1L, 20L);
     }
 }
