@@ -8,8 +8,7 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.inventory.meta.CompassMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -22,7 +21,7 @@ public final class Compass extends JavaPlugin {
     @Override
     public void onEnable() {
         TRACKING_KEY = new NamespacedKey(this, "tracking_target_uuid");
-        this.getCommand("compass").setExecutor(new CompassCommand(this));
+        this.getCommand("compass").setExecutor(new CompassCommand());
         startCompassUpdater();
     }
 
@@ -31,45 +30,52 @@ public final class Compass extends JavaPlugin {
             @Override
             public void run() {
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    ItemStack itemInHand = player.getInventory().getItemInMainHand();
-
-                    if (itemInHand.getType() != Material.COMPASS || !itemInHand.hasItemMeta()) {
-                        continue;
-                    }
-
-                    ItemMeta meta = itemInHand.getItemMeta();
-                    PersistentDataContainer container = meta.getPersistentDataContainer();
-
-                    if (!container.has(TRACKING_KEY, PersistentDataType.STRING)) {
-                        continue;
-                    }
-
-                    String targetUUIDString = container.get(TRACKING_KEY, PersistentDataType.STRING);
-                    UUID targetUUID = UUID.fromString(targetUUIDString);
-                    Player target = Bukkit.getPlayer(targetUUID);
-
-                    String message;
-                    if (target == null || !target.isOnline()) {
-                        String offlineName = Bukkit.getOfflinePlayer(targetUUID).getName();
-                        message = ChatColor.YELLOW + (offlineName != null ? offlineName : "Игрок") + ChatColor.WHITE + " | " + ChatColor.GRAY + "оффлайн";
-                    } else {
-                        player.setCompassTarget(target.getLocation());
-                        if (player.getWorld().equals(target.getWorld())) {
-                            int distance = (int) player.getLocation().distance(target.getLocation());
-                            message = ChatColor.YELLOW + target.getName() +
-                                      ChatColor.WHITE + " | " +
-                                      ChatColor.GREEN + "расстояние: " + distance;
-                        } else {
-                            String worldName = getWorldDisplayName(target.getWorld().getName());
-                            message = ChatColor.YELLOW + target.getName() +
-                                      ChatColor.WHITE + " | " +
-                                      ChatColor.RED + worldName;
-                        }
-                    }
-                    player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(message));
+                    updateCompassInHand(player.getInventory().getItemInMainHand());
+                    updateCompassInHand(player.getInventory().getItemInOffHand());
                 }
             }
         }.runTaskTimer(this, 0L, 20L);
+    }
+
+    private void updateCompassInHand(ItemStack item) {
+        if (item == null || item.getType() != Material.COMPASS || !item.hasItemMeta()) {
+            return;
+        }
+
+        if (!(item.getItemMeta() instanceof CompassMeta meta)) {
+            return;
+        }
+
+        if (!meta.getPersistentDataContainer().has(TRACKING_KEY, PersistentDataType.STRING)) {
+            return;
+        }
+
+        String targetUUIDString = meta.getPersistentDataContainer().get(TRACKING_KEY, PersistentDataType.STRING);
+        UUID targetUUID = UUID.fromString(targetUUIDString);
+        Player target = Bukkit.getPlayer(targetUUID);
+
+        Player owner = (Player) item.getHolder();
+        if (owner == null) return;
+
+        String message;
+        if (target != null && target.isOnline()) {
+            meta.setLodestone(target.getLocation());
+            meta.setLodestoneTracked(false);
+            if (owner.getWorld().equals(target.getWorld())) {
+                int distance = (int) owner.getLocation().distance(target.getLocation());
+                message = ChatColor.YELLOW + target.getName() + ChatColor.WHITE + " | " + ChatColor.GREEN + "расстояние: " + distance;
+            } else {
+                String worldName = getWorldDisplayName(target.getWorld().getName());
+                message = ChatColor.YELLOW + target.getName() + ChatColor.WHITE + " | " + ChatColor.RED + worldName;
+            }
+        } else {
+            meta.setLodestone(null);
+            String offlineName = Bukkit.getOfflinePlayer(targetUUID).getName();
+            message = ChatColor.YELLOW + (offlineName != null ? offlineName : "Игрок") + ChatColor.WHITE + " | " + ChatColor.GRAY + "оффлайн";
+        }
+
+        item.setItemMeta(meta);
+        owner.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(message));
     }
 
     private String getWorldDisplayName(String technicalName) {
